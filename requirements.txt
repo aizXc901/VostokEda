@@ -1,0 +1,6 @@
+customtkinter>=5.2.0
+pillow>=10.0.0
+matplotlib>=3.7.0
+python-dateutil>=2.8.2
+openpyxl>=3.1.0
+reportlab>=4.0.0  # Для PDF экспорта
