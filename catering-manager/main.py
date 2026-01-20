@@ -12,7 +12,7 @@ sys.path.insert(0, str(Path(__file__).parent))
 import customtkinter as ctk
 from config import Config
 from controllers import CateringController
-from views.main_window import MainWindow
+from views.main_window import MainWindow  # <--- Исправлен импорт (добавлено views.)
 
 # Настройка логирования
 logging.basicConfig(

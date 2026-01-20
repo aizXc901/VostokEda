@@ -106,28 +106,6 @@ class Event:
 
 
 @dataclass
-class Order:
-    """Заказ"""
-    id: int = 0
-    order_number: str = ""
-    event_id: int = 0
-    event: Optional[Event] = None
-    order_date: datetime = field(default_factory=datetime.now)
-    status: str = "черновик"  # черновик, подтвержден, отменен
-    total_amount: Decimal = Decimal('0.00')
-    notes: str = ""
-    created_at: datetime = field(default_factory=datetime.now)
-
-    def __post_init__(self):
-        """Генерация номера заказа если он не задан"""
-        if not self.order_number:
-            self.order_number = f"ORD-{datetime.now().strftime('%Y%m%d')}-{uuid.uuid4().hex[:6].upper()}"
-
-    def __str__(self):
-        return f"Заказ №{self.order_number}"
-
-
-@dataclass
 class OrderItem:
     """Позиция заказа"""
     id: int = 0
@@ -151,6 +129,40 @@ class OrderItem:
     def calculate_total(self):
         """Расчитать общую стоимость"""
         self.total_price = self.quantity * self.unit_price
+
+
+@dataclass
+class Order:
+    """Заказ"""
+    id: int = 0
+    order_number: str = ""
+    event_id: int = 0
+    event: Optional[Event] = None
+    order_date: datetime = field(default_factory=datetime.now)
+    status: str = "черновик"  # черновик, подтвержден, отменен
+    total_amount: Decimal = Decimal('0.00')
+    notes: str = ""
+    created_at: datetime = field(default_factory=datetime.now)
+    items: List[OrderItem] = field(default_factory=list)  # <--- Теперь OrderItem определен выше
+
+    def __post_init__(self):
+        """Генерация номера заказа если он не задан"""
+        if not self.order_number:
+            self.order_number = f"ORD-{datetime.now().strftime('%Y%m%d')}-{uuid.uuid4().hex[:6].upper()}"
+
+    def __str__(self):
+        return f"Заказ №{self.order_number}"
+    
+    def add_item(self, item: OrderItem):
+        """Добавить позицию в заказ"""
+        self.items.append(item)
+        self.total_amount += item.total_price
+    
+    def remove_item(self, index: int):
+        """Удалить позицию из заказа"""
+        if 0 <= index < len(self.items):
+            removed_item = self.items.pop(index)
+            self.total_amount -= removed_item.total_price
 
 
 @dataclass
@@ -186,7 +198,7 @@ class ExpenseReportItem:
     category_name: str
     planned_amount: Decimal
     actual_amount: Decimal
-    percentage: float
+    percentage: float = 0.0  # <--- Добавлено значение по умолчанию
 
     def __post_init__(self):
         """Расчет процента"""

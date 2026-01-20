@@ -148,13 +148,11 @@ class CateringController:
         """Получить все мероприятия"""
         return self.db.get_all_events()
 
-    def add_event(self, name, event_date, start_time, guests_count, budget,
-                  description, location, responsible_person, status="планируется"):
+    def add_event(self, name: str, event_date: date, start_time: time, guests_count: int, budget: Decimal,
+                  description: str = "", location: str = "", responsible_person: str = "", 
+                  status: str = "планируется") -> Tuple[bool, str]:
         """Добавить мероприятие"""
         try:
-            from models import Event
-            from datetime import datetime
-
             event = Event(
                 name=name,
                 event_date=event_date,
@@ -168,8 +166,10 @@ class CateringController:
                 created_at=datetime.now()
             )
 
-            return True, "Мероприятие успешно добавлено"
+            event_id = self.db.add_event(event)
+            return True, f"Мероприятие '{name}' успешно добавлено (ID: {event_id})"
         except Exception as e:
+            logger.error(f"Ошибка добавления мероприятия: {e}")
             return False, f"Ошибка: {str(e)}"
 
     def select_event(self, event_id: int) -> bool:

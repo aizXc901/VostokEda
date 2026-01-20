@@ -318,10 +318,10 @@ class DatabaseManager:
 
     # ===== CRUD для supplier_prices =====
 
-    def get_prices_for_nomenclature(self, nomenclature_id: int, date: date = None) -> List[SupplierPrice]:
+    def get_prices_for_nomenclature(self, nomenclature_id: int, check_date: Optional[date] = None) -> List[SupplierPrice]:
         """Получить цены на номенклатуру на определенную дату"""
-        if date is None:
-            date = date.today()
+        if check_date is None:
+            check_date = date.today()
 
         prices = []
         with self.get_connection() as conn:
@@ -335,18 +335,21 @@ class DatabaseManager:
                 AND sp.start_date <= ?
                 AND (sp.end_date IS NULL OR sp.end_date >= ?)
                 ORDER BY sp.price
-            """, (nomenclature_id, date.isoformat(), date.isoformat()))
+            """, (nomenclature_id, check_date.isoformat(), check_date.isoformat()))
 
             rows = cursor.fetchall()
             for row in rows:
+                start_date = date.fromisoformat(row['start_date']) if row['start_date'] else check_date
+                end_date = date.fromisoformat(row['end_date']) if row['end_date'] else None
+                
                 prices.append(SupplierPrice(
                     id=row['id'],
                     supplier_id=row['supplier_id'],
                     nomenclature_id=row['nomenclature_id'],
                     price=Decimal(str(row['price'])),
                     currency=row['currency'] if 'currency' in row.keys() else 'RUB',
-                    start_date=date.fromisoformat(row['start_date']),
-                    end_date=date.fromisoformat(row['end_date']) if row['end_date'] else None,
+                    start_date=start_date,
+                    end_date=end_date,
                     min_quantity=Decimal(str(row['min_quantity'])) if 'min_quantity' in row.keys() else Decimal('1')
                 ))
 
