@@ -362,7 +362,15 @@ class EventDialog(ctk.CTkToplevel):
         ).pack(side="right", padx=10)
 
         # Настроить прокрутку колесиком мыши
-        canvas.bind_all("<MouseWheel>", lambda event: canvas.yview_scroll(int(-1*(event.delta/120)), "units"))
+        self.canvas = canvas  # Сохраняем ссылку на canvas для правильного удаления привязки
+        canvas.bind_all("<MouseWheel>", self._on_mousewheel)
+
+    def _on_mousewheel(self, event):
+        """Обработка прокрутки колесиком мыши"""
+        try:
+            self.canvas.yview_scroll(int(-1*(event.delta/120)), "units")
+        except:
+            pass  # Игнорируем ошибки прокрутки
 
     def _fill_data(self):
         """Заполнить поля данными"""
@@ -376,6 +384,16 @@ class EventDialog(ctk.CTkToplevel):
             self.responsible_entry.insert(0, self.event.responsible_person)
             self.status_combo.set(self.event.status)
             self.description_entry.insert("1.0", self.event.description)
+
+    def destroy(self):
+        """Переопределение метода destroy для очистки привязок"""
+        try:
+            # Удаляем привязку события прокрутки перед уничтожением окна
+            if hasattr(self, 'canvas'):
+                self.canvas.unbind_all("<MouseWheel>")
+        except:
+            pass  # Игнорируем ошибки при отвязке
+        super().destroy()
 
     def _save(self):
         """Сохранить мероприятие"""

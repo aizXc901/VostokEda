@@ -1,0 +1,36 @@
+<h2>Suppliers</h2>
+
+<div class="mb-3">
+    <a href="/suppliers/new" class="btn btn-primary">Add New Supplier</a>
+</div>
+
+<div class="row">
+    <div class="col-md-12">
+        <% if (suppliers.length === 0) { %>
+            <div class="alert alert-info">No suppliers found. <a href="/suppliers/new">Create one now</a>.</div>
+        <% } else { %>
+            <table class="table table-striped table-hover">
+                <thead class="table-dark">
+                    <tr>
+                        <th>ID</th>
+                        <th>Name</th>
+                        <th>Category</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <% suppliers.forEach(supplier => { %>
+                        <tr>
+                            <td><%= supplier.id %></td>
+                            <td><%= supplier.name %></td>
+                            <td><%= supplier.CostCategory.name %></td>
+                            <td>
+                                <!-- Add edit/delete buttons if needed -->
+                            </td>
+                        </tr>
+                    <% }); %>
+                </tbody>
+            </table>
+        <% } %>
+    </div>
+</div>
