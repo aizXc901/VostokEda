@@ -1,5 +1,5 @@
 """
-Модели данных (сущности)
+Модели данных (сущности) - адаптировано под существующую структуру БД
 """
 
 from dataclasses import dataclass, field
@@ -16,7 +16,7 @@ class CostCategory:
     name: str = ""
     description: str = ""
     color: str = "#808080"
-    created_at: datetime = field(default_factory=datetime.now)
+    created_at: Optional[datetime] = None
     is_active: bool = True
 
     def __str__(self):
@@ -33,7 +33,7 @@ class Nomenclature:
     unit: str = "шт."
     description: str = ""
     image_path: str = ""
-    created_at: datetime = field(default_factory=datetime.now)
+    created_at: Optional[datetime] = None
     is_active: bool = True
 
     def __str__(self):
@@ -53,7 +53,7 @@ class Supplier:
     address: str = ""
     inn: str = ""
     rating: float = 0.0
-    created_at: datetime = field(default_factory=datetime.now)
+    created_at: Optional[datetime] = None
     is_active: bool = True
 
     def __str__(self):
@@ -73,7 +73,7 @@ class SupplierPrice:
     start_date: date = field(default_factory=date.today)
     end_date: Optional[date] = None
     min_quantity: Decimal = Decimal('1')
-    created_at: datetime = field(default_factory=datetime.now)
+    created_at: Optional[datetime] = None
 
     def is_active(self, check_date: Optional[date] = None) -> bool:
         """Проверка активности цены на указанную дату"""
@@ -92,14 +92,14 @@ class Event:
     id: int = 0
     name: str = ""
     event_date: date = field(default_factory=date.today)
-    start_time: time = time(10, 0)  # 10:00 по умолчанию
+    start_time: time = time(10, 0)
     guests_count: int = 0
     budget: Decimal = Decimal('0.00')
     description: str = ""
-    status: str = "планируется"  # планируется, идет, завершено
+    status: str = "планируется"
     location: str = ""
     responsible_person: str = ""
-    created_at: datetime = field(default_factory=datetime.now)
+    created_at: Optional[datetime] = None
 
     def __str__(self):
         return f"{self.name} ({self.event_date.strftime('%d.%m.%Y')})"
@@ -138,26 +138,30 @@ class Order:
     order_number: str = ""
     event_id: int = 0
     event: Optional[Event] = None
-    order_date: datetime = field(default_factory=datetime.now)
-    status: str = "черновик"  # черновик, подтвержден, отменен
+    order_date: Optional[datetime] = None
+    status: str = "черновик"
     total_amount: Decimal = Decimal('0.00')
     notes: str = ""
-    created_at: datetime = field(default_factory=datetime.now)
-    items: List[OrderItem] = field(default_factory=list)  # <--- Теперь OrderItem определен выше
+    created_at: Optional[datetime] = None
+    items: List[OrderItem] = field(default_factory=list)
 
     def __post_init__(self):
         """Генерация номера заказа если он не задан"""
         if not self.order_number:
             self.order_number = f"ORD-{datetime.now().strftime('%Y%m%d')}-{uuid.uuid4().hex[:6].upper()}"
+        if not self.order_date:
+            self.order_date = datetime.now()
+        if not self.created_at:
+            self.created_at = datetime.now()
 
     def __str__(self):
         return f"Заказ №{self.order_number}"
-    
+
     def add_item(self, item: OrderItem):
         """Добавить позицию в заказ"""
         self.items.append(item)
         self.total_amount += item.total_price
-    
+
     def remove_item(self, index: int):
         """Удалить позицию из заказа"""
         if 0 <= index < len(self.items):
@@ -175,8 +179,8 @@ class BudgetControl:
     category: Optional[CostCategory] = None
     planned_amount: Decimal = Decimal('0.00')
     actual_amount: Decimal = Decimal('0.00')
-    created_at: datetime = field(default_factory=datetime.now)
-    updated_at: datetime = field(default_factory=datetime.now)
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
 
     @property
     def difference(self) -> Decimal:
@@ -198,7 +202,7 @@ class ExpenseReportItem:
     category_name: str
     planned_amount: Decimal
     actual_amount: Decimal
-    percentage: float = 0.0  # <--- Добавлено значение по умолчанию
+    percentage: float = 0.0
 
     def __post_init__(self):
         """Расчет процента"""
