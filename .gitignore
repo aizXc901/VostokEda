@@ -15,6 +15,7 @@ venv/
 .env.*
 .venv.bak
 .venv/
+.idea
 pip-log.txt
 pip-delete-this-directory.txt
 .tox/
