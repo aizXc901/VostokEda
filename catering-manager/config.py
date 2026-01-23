@@ -59,6 +59,12 @@ class Config:
     # Логирование
     LOG_LEVEL = "INFO"
     LOG_FILE = DATA_DIR / "app.log"
+    DEFAULT_LANGUAGE = "ru"
+
+    @staticmethod
+    def get_language() -> str:
+        """Получить текущий язык"""
+        return getattr(Config, 'DEFAULT_LANGUAGE', 'ru')
 
     @staticmethod
     def get_database_path() -> Path:

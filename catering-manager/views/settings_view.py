@@ -188,18 +188,19 @@ class SettingsPage(BasePage):
             font=("Arial", 14, "bold")
         ).pack(anchor="w", padx=10, pady=10)
 
-        # Язык интерфейса
+        # Язык интерфейса - только русский
         lang_frame = ctk.CTkFrame(interface_frame)
         lang_frame.pack(fill="x", padx=10, pady=5)
 
         ctk.CTkLabel(lang_frame, text="Язык интерфейса:", font=("Arial", 12)).pack(anchor="w", padx=10, pady=(5, 0))
         self.language = ctk.CTkComboBox(
             lang_frame,
-            values=["Русский", "English"],
+            values=["Русский"],  # Только русский язык
             width=200,
             font=("Arial", 12)
         )
         self.language.pack(anchor="w", padx=10, pady=5)
+        self.language.set("Русский")
 
         # Тема интерфейса
         theme_frame = ctk.CTkFrame(interface_frame)
@@ -251,8 +252,8 @@ class SettingsPage(BasePage):
             self.backup_interval.insert(0, str(self.settings.backup_interval_days))
 
             # Установка языка интерфейса
-            lang_map = {"ru": "Русский", "en": "English"}
-            self.language.set(lang_map.get(self.settings.language, "Русский"))
+            lang_map = {"ru": "Русский"}
+            self.language.set("Русский")
 
             # Установка темы интерфейса
             theme_map = {"dark": "Темная", "light": "Светлая", "system": "Системная"}
@@ -275,8 +276,8 @@ class SettingsPage(BasePage):
             self.settings.auto_backup_enabled = self.auto_backup_var.get()
             self.settings.backup_interval_days = int(self.backup_interval.get())
 
-            lang_map = {"Русский": "ru", "English": "en"}
-            self.settings.language = lang_map[self.language.get()]
+            lang_map = {"Русский": "ru"}
+            self.settings.language = "ru"
 
             theme_map = {"Темная": "dark", "Светлая": "light", "Системная": "system"}
             self.settings.theme = theme_map[self.theme.get()]
