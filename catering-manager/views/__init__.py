@@ -9,3 +9,4 @@ from .suppliers_view import SuppliersPage
 from .events_view import EventsPage
 from .orders_view import OrdersPage  # Это уже должно быть
 from .reports_view import ReportsPage
+

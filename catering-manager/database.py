@@ -768,3 +768,82 @@ class DatabaseManager:
 
             conn.commit()
             logger.info("Тестовые данные добавлены в базу")
+
+        def delete_nomenclature(self, nomenclature_id: int) -> Tuple[bool, str]:
+            """Удалить номенклатуру"""
+            with self.get_connection() as conn:
+                cursor = conn.cursor()
+
+                # Проверяем, используется ли номенклатура в заказах
+                cursor.execute("""
+                    SELECT COUNT(*) as count
+                    FROM order_items
+                    WHERE nomenclature_id = ?
+                """, (nomenclature_id,))
+
+                usage_count = cursor.fetchone()['count']
+                if usage_count > 0:
+                    return False, f"Номенклатура используется в {usage_count} позициях заказов, удаление невозможно"
+
+                # Удаляем номенклатуру
+                cursor.execute("""
+                    DELETE FROM nomenclatures
+                    WHERE id = ?
+                """, (nomenclature_id,))
+
+                conn.commit()
+
+                if cursor.rowcount > 0:
+                    return True, "Номенклатура успешно удалена"
+                else:
+                    return False, "Номенклатура не найдена"
+
+        def update_nomenclature(self, nomenclature: Nomenclature) -> Tuple[bool, str]:
+            """Обновить номенклатуру"""
+            with self.get_connection() as conn:
+                cursor = conn.cursor()
+                cursor.execute("""
+                    UPDATE nomenclatures
+                    SET name = ?, category_id = ?, unit = ?, description = ?, is_active = ?
+                    WHERE id = ?
+                """, (
+                    nomenclature.name,
+                    nomenclature.category_id,
+                    nomenclature.unit,
+                    nomenclature.description,
+                    1 if nomenclature.is_active else 0,
+                    nomenclature.id
+                ))
+                conn.commit()
+
+                if cursor.rowcount > 0:
+                    return True, "Номенклатура успешно обновлена"
+                else:
+                    return False, "Номенклатура не найдена"
+
+        def get_orders_using_nomenclature(self, nomenclature_id: int) -> List[Order]:
+            """Получить заказы, в которых используется номенклатура"""
+            orders = []
+            with self.get_connection() as conn:
+                cursor = conn.cursor()
+                cursor.execute("""
+                    SELECT DISTINCT o.* 
+                    FROM orders o
+                    JOIN order_items oi ON o.id = oi.order_id
+                    WHERE oi.nomenclature_id = ?
+                """, (nomenclature_id,))
+
+                rows = cursor.fetchall()
+                for row in rows:
+                    orders.append(Order(
+                        id=row['id'],
+                        order_number=row['order_number'],
+                        event_id=row['event_id'],
+                        order_date=datetime.fromisoformat(row['order_date']),
+                        status=row['status'],
+                        total_amount=Decimal(str(row['total_amount'])),
+                        notes=row['notes'] or '',
+                        created_at=datetime.fromisoformat(row['created_at']) if row['created_at'] else datetime.now()
+                    ))
+
+            return orders
