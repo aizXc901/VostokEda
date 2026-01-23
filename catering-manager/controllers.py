@@ -205,6 +205,10 @@ class CateringController:
         if not nomenclature:
             return False, "Номенклатура не найдена"
 
+        supplier = next((s for s in self.get_all_suppliers() if s.id == supplier_id), None)
+        if not supplier:
+            return False, "Поставщик не найден"
+
         # Получаем актуальную цену если не указана
         if unit_price is None:
             prices = self.db.get_prices_for_nomenclature(nomenclature_id)
@@ -215,14 +219,12 @@ class CateringController:
 
             unit_price = supplier_prices[0].price
 
-        # Проверяем минимальное количество если есть
-        # (пропускаем для упрощения)
-
         # Создаем позицию заказа
         item = OrderItem(
             nomenclature_id=nomenclature_id,
             supplier_id=supplier_id,
             nomenclature=nomenclature,
+            supplier=supplier,
             quantity=quantity,
             unit_price=unit_price
         )
@@ -233,11 +235,11 @@ class CateringController:
             budget_usage = new_total / self.current_event.budget
 
             if budget_usage > Config.BUDGET_CRITICAL_THRESHOLD:
-                return False, f"Превышение бюджета на {Formatters.format_percentage((budget_usage - 1) * 100)}"
+                return False, f"Превышение бюджета на {Formatters.format_percentage((budget_usage - 1) * 100)}%"
             elif budget_usage > Config.BUDGET_ALERT_THRESHOLD:
                 # Предупреждение, но разрешаем
                 self.current_order.add_item(item)
-                warning_msg = f"Внимание: использовано {Formatters.format_percentage(budget_usage * 100)} бюджета"
+                warning_msg = f"Внимание: использовано {Formatters.format_percentage(budget_usage * 100)}% бюджета"
                 return True, warning_msg
 
         self.current_order.add_item(item)
@@ -253,10 +255,9 @@ class CateringController:
 
         # Проверяем срок заказа (не позднее чем за сутки до мероприятия)
         if self.current_event:
-            if not Validators.check_order_deadline(
-                    self.current_event.event_date,
-                    self.current_order.order_date
-            ):
+            from datetime import timedelta
+            deadline = self.current_event.event_date - timedelta(days=1)
+            if self.current_order.order_date.date() > deadline:
                 return False, "Заказ можно формировать не позднее чем за сутки до мероприятия"
 
         # Устанавливаем примечания

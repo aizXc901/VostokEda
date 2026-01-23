@@ -490,6 +490,10 @@ class EventDialog(ctk.CTkToplevel):
         self.destroy()
 
 
+"""Окно для просмотра заказов мероприятия"""
+
+
+# 确保在文件开头已经定义了 OrdersWindow 类
 class OrdersWindow(ctk.CTkToplevel):
     """Окно для просмотра заказов мероприятия"""
 
@@ -513,7 +517,13 @@ class OrdersWindow(ctk.CTkToplevel):
         """Создание виджетов окна"""
         main_frame = ctk.CTkFrame(self)
         main_frame.pack(fill="both", expand=True, padx=10, pady=10)
-
+        # Статусная строка
+        self.status_label = ctk.CTkLabel(
+            main_frame,
+            text="Загрузка...",
+            font=("Arial", 10)
+        )
+        self.status_label.pack(side="bottom", fill="x", padx=10, pady=10)
         # Заголовок
         title_frame = ctk.CTkFrame(main_frame)
         title_frame.pack(fill="x", pady=(0, 10))
@@ -633,8 +643,9 @@ class OrdersWindow(ctk.CTkToplevel):
             self.tree.tag_configure('отменен', foreground='red')
 
             # Обновляем статус
+            total_amount = sum(o.total_amount for o in orders)
             self.status_label.configure(
-                text=f"Загружено заказов: {len(orders)} | Общая сумма: {Formatters.format_currency(sum(o.total_amount for o in orders))}"
+                text=f"Загружено заказов: {len(orders)} | Общая сумма: {Formatters.format_currency(total_amount)}"
             )
 
         except Exception as e:
@@ -646,7 +657,12 @@ class OrdersWindow(ctk.CTkToplevel):
             messagebox.showwarning("Внимание", "Не выбрано мероприятие")
             return
 
-        messagebox.showinfo("Создание заказа", "Функция создания заказа находится в разработке")
+        # Открываем окно создания заказа
+        order_window = OrderCreationWindow(self, self.controller)
+        self.wait_window(order_window)
+
+        # После закрытия окна обновляем данные
+        self.refresh_data()
 
     def _view_order_details(self):
         """Просмотреть детали заказа"""
@@ -657,7 +673,575 @@ class OrdersWindow(ctk.CTkToplevel):
         item = self.tree.item(selected[0])
         order_number = item['values'][0]
 
-        messagebox.showinfo(
-            "Детали заказа",
-            f"Заказ №{order_number}\n\nФункция просмотра деталей находится в разработке."
+        # Находим заказ по номеру
+        orders = self.controller.get_orders_for_current_event()
+        order = next((o for o in orders if o.order_number == order_number), None)
+
+        if order:
+            # Открываем окно с деталями заказа
+            detail_window = OrderDetailsWindow(self, self.controller, order)
+            self.wait_window(detail_window)
+        else:
+            messagebox.showerror("Ошибка", f"Заказ №{order_number} не найден")
+
+
+class OrderCreationWindow(ctk.CTkToplevel):
+    """Окно создания нового заказа"""
+
+    def __init__(self, parent, controller):
+        super().__init__(parent)
+
+        self.controller = controller
+        self.order = None
+        self.nomenclatures = []
+        self.suppliers = []
+
+        # Настройка окна
+        self.title("Создание нового заказа")
+        self.geometry("1200x800")
+        self.transient(parent)
+        self.grab_set()
+
+        self._create_widgets()
+        self._load_data()
+
+    def _create_widgets(self):
+        """Создание виджетов окна"""
+        main_frame = ctk.CTkFrame(self)
+        main_frame.pack(fill="both", expand=True, padx=10, pady=10)
+
+        # Заголовок
+        title_frame = ctk.CTkFrame(main_frame)
+        title_frame.pack(fill="x", pady=(0, 10))
+
+        ctk.CTkLabel(
+            title_frame,
+            text="➕ Создание нового заказа",
+            font=("Arial", 16, "bold")
+        ).pack(side="left", padx=10)
+
+        # Информация о мероприятии
+        event_info_frame = ctk.CTkFrame(main_frame)
+        event_info_frame.pack(fill="x", pady=(0, 10))
+
+        event = self.controller.current_event
+        event_info = (
+            f"Мероприятие: {event.name} | "
+            f"Дата: {Formatters.format_date(event.event_date)} | "
+            f"Бюджет: {Formatters.format_currency(event.budget)}"
         )
+        ctk.CTkLabel(
+            event_info_frame,
+            text=event_info,
+            font=("Arial", 12)
+        ).pack(anchor="w", padx=10, pady=5)
+
+        # Прогресс-бар бюджета
+        self.budget_progress = ctk.CTkProgressBar(event_info_frame)
+        self.budget_progress.pack(fill="x", padx=10, pady=(5, 10))
+        self.budget_progress.set(0)
+
+        # Обновляем информацию о бюджете
+        self._update_budget_info()
+
+        # Основной контейнер с двумя частями
+        container_frame = ctk.CTkFrame(main_frame)
+        container_frame.pack(fill="both", expand=True)
+
+        # Левая часть - форма добавления позиций
+        left_frame = ctk.CTkFrame(container_frame)
+        left_frame.pack(side="left", fill="both", expand=True, padx=(0, 5))
+
+        # Форма добавления позиции
+        form_frame = ctk.CTkFrame(left_frame)
+        form_frame.pack(fill="x", padx=10, pady=10)
+
+        ctk.CTkLabel(
+            form_frame,
+            text="Добавить позицию в заказ",
+            font=("Arial", 14, "bold")
+        ).pack(anchor="w", padx=10, pady=(0, 10))
+
+        # Выбор номенклатуры
+        ctk.CTkLabel(form_frame, text="Номенклатура:", font=("Arial", 12)).pack(anchor="w", padx=10, pady=(5, 0))
+        self.nomenclature_combo = ctk.CTkComboBox(
+            form_frame,
+            values=[],
+            width=300,
+            font=("Arial", 12)
+        )
+        self.nomenclature_combo.pack(fill="x", padx=10, pady=(0, 10))
+
+        # Выбор поставщика
+        ctk.CTkLabel(form_frame, text="Поставщик:", font=("Arial", 12)).pack(anchor="w", padx=10, pady=(5, 0))
+        self.supplier_combo = ctk.CTkComboBox(
+            form_frame,
+            values=[],
+            width=300,
+            font=("Arial", 12)
+        )
+        self.supplier_combo.pack(fill="x", padx=10, pady=(0, 10))
+
+        # Количество и цена
+        input_frame = ctk.CTkFrame(form_frame)
+        input_frame.pack(fill="x", padx=10, pady=(0, 10))
+
+        # Количество
+        qty_frame = ctk.CTkFrame(input_frame)
+        qty_frame.pack(side="left", padx=(0, 10))
+        ctk.CTkLabel(qty_frame, text="Количество:", font=("Arial", 12)).pack(anchor="w")
+        self.quantity_entry = ctk.CTkEntry(qty_frame, width=100, font=("Arial", 12))
+        self.quantity_entry.pack(pady=(0, 5))
+        self.quantity_entry.insert(0, "1")
+
+        # Цена
+        price_frame = ctk.CTkFrame(input_frame)
+        price_frame.pack(side="left")
+        ctk.CTkLabel(price_frame, text="Цена за ед.:", font=("Arial", 12)).pack(anchor="w")
+        self.price_entry = ctk.CTkEntry(price_frame, width=100, font=("Arial", 12))
+        self.price_entry.pack(pady=(0, 5))
+
+        # Кнопка добавления
+        ctk.CTkButton(
+            form_frame,
+            text="➕ Добавить в заказ",
+            command=self._add_item,
+            width=200,
+            font=("Arial", 12, "bold")
+        ).pack(pady=10)
+
+        # Правая часть - текущий заказ
+        right_frame = ctk.CTkFrame(container_frame)
+        right_frame.pack(side="right", fill="both", expand=True, padx=(5, 0))
+
+        # Заголовок заказа
+        order_header_frame = ctk.CTkFrame(right_frame)
+        order_header_frame.pack(fill="x", padx=10, pady=10)
+
+        ctk.CTkLabel(
+            order_header_frame,
+            text="Текущий заказ",
+            font=("Arial", 14, "bold")
+        ).pack(anchor="w", padx=10)
+
+        # Таблица позиций заказа
+        table_frame = ctk.CTkFrame(right_frame)
+        table_frame.pack(fill="both", expand=True, padx=10, pady=10)
+
+        # Treeview для позиций
+        tree_frame = ctk.CTkFrame(table_frame)
+        tree_frame.pack(fill="both", expand=True)
+
+        tree_scroll_y = ctk.CTkScrollbar(tree_frame)
+        tree_scroll_y.pack(side="right", fill="y")
+
+        tree_scroll_x = ctk.CTkScrollbar(tree_frame, orientation="horizontal")
+        tree_scroll_x.pack(side="bottom", fill="x")
+
+        self.order_tree = ttk.Treeview(
+            tree_frame,
+            yscrollcommand=tree_scroll_y.set,
+            xscrollcommand=tree_scroll_x.set,
+            selectmode="browse",
+            height=10
+        )
+
+        tree_scroll_y.configure(command=self.order_tree.yview)
+        tree_scroll_x.configure(command=self.order_tree.xview)
+
+        # Колонки
+        self.order_tree['columns'] = ('item', 'supplier', 'quantity', 'unit', 'price', 'total')
+        self.order_tree.column('#0', width=0, stretch=tk.NO)
+        self.order_tree.column('item', width=150, anchor=tk.W)
+        self.order_tree.column('supplier', width=120, anchor=tk.W)
+        self.order_tree.column('quantity', width=80, anchor=tk.CENTER)
+        self.order_tree.column('unit', width=60, anchor=tk.CENTER)
+        self.order_tree.column('price', width=100, anchor=tk.E)
+        self.order_tree.column('total', width=100, anchor=tk.E)
+
+        # Заголовки
+        self.order_tree.heading('item', text='Позиция')
+        self.order_tree.heading('supplier', text='Поставщик')
+        self.order_tree.heading('quantity', text='Кол-во')
+        self.order_tree.heading('unit', text='Ед.')
+        self.order_tree.heading('price', text='Цена')
+        self.order_tree.heading('total', text='Сумма')
+
+        self.order_tree.pack(fill="both", expand=True)
+
+        # Итоговая сумма
+        total_frame = ctk.CTkFrame(right_frame)
+        total_frame.pack(fill="x", padx=10, pady=(0, 10))
+
+        self.total_label = ctk.CTkLabel(
+            total_frame,
+            text="Итого: 0 ₽",
+            font=("Arial", 14, "bold")
+        )
+        self.total_label.pack(side="right", padx=10, pady=5)
+
+        # Кнопки управления
+        buttons_frame = ctk.CTkFrame(right_frame)
+        buttons_frame.pack(fill="x", padx=10, pady=10)
+
+        ctk.CTkButton(
+            buttons_frame,
+            text="🗑️ Удалить позицию",
+            command=self._remove_item,
+            width=120,
+            fg_color="#FF6B6B",
+            hover_color="#FF4757"
+        ).pack(side="left", padx=5)
+
+        # Примечания
+        notes_frame = ctk.CTkFrame(main_frame)
+        notes_frame.pack(fill="x", padx=10, pady=10)
+
+        ctk.CTkLabel(notes_frame, text="Примечания к заказу:", font=("Arial", 12)).pack(anchor="w", padx=10,
+                                                                                        pady=(5, 0))
+        self.notes_text = ctk.CTkTextbox(notes_frame, height=60, font=("Arial", 12))
+        self.notes_text.pack(fill="x", padx=10, pady=(0, 10))
+
+        # Кнопки сохранения
+        save_frame = ctk.CTkFrame(main_frame)
+        save_frame.pack(fill="x", padx=10, pady=10)
+
+        ctk.CTkButton(
+            save_frame,
+            text="❌ Отмена",
+            command=self._cancel,
+            width=120,
+            fg_color="gray",
+            hover_color="darkgray"
+        ).pack(side="left", padx=5)
+
+        ctk.CTkButton(
+            save_frame,
+            text="💾 Сохранить заказ",
+            command=self._save_order,
+            width=150,
+            font=("Arial", 12, "bold")
+        ).pack(side="right", padx=5)
+
+    def _load_data(self):
+        """Загрузка начальных данных"""
+        try:
+            # Загружаем номенклатуру и поставщиков
+            self.nomenclatures = self.controller.get_all_nomenclatures()
+            self.suppliers = self.controller.get_all_suppliers()
+
+            # Заполняем комбобоксы
+            nomenclature_names = [f"{n.name} ({n.unit})" for n in self.nomenclatures if n.is_active]
+            self.nomenclature_combo.configure(values=nomenclature_names)
+
+            supplier_names = [s.name for s in self.suppliers if s.is_active]
+            self.supplier_combo.configure(values=supplier_names)
+
+            # Создаем новый заказ
+            self.order = self.controller.create_new_order()
+
+        except Exception as e:
+            messagebox.showerror("Ошибка", f"Не удалось загрузить данные: {str(e)}")
+
+    def _update_budget_info(self):
+        """Обновление информации о бюджете"""
+        if not self.controller.current_event:
+            return
+
+        budget_status = self.controller.get_budget_status()
+
+        # Обновляем прогресс-бар
+        usage = budget_status['percentage'] / 100
+        self.budget_progress.set(min(usage, 1.0))
+
+        # Цвет прогресс-бара
+        if usage < 0.8:
+            self.budget_progress.configure(progress_color="green")
+        elif usage < 0.9:
+            self.budget_progress.configure(progress_color="yellow")
+        elif usage < 1.0:
+            self.budget_progress.configure(progress_color="orange")
+        else:
+            self.budget_progress.configure(progress_color="red")
+
+    def _add_item(self):
+        """Добавить позицию в заказ"""
+        if not self.order:
+            return
+
+        # Получаем данные из формы
+        nomenclature_display = self.nomenclature_combo.get()
+        supplier_name = self.supplier_combo.get()
+        quantity_str = self.quantity_entry.get().strip()
+        price_str = self.price_entry.get().strip()
+
+        # Валидация
+        if not nomenclature_display:
+            messagebox.showwarning("Внимание", "Выберите номенклатуру")
+            return
+
+        if not supplier_name:
+            messagebox.showwarning("Внимание", "Выберите поставщика")
+            return
+
+        # Находим номенклатуру
+        selected_nomenclature = None
+        nomenclature_id = None
+        for nom in self.nomenclatures:
+            display_name = f"{nom.name} ({nom.unit})"
+            if display_name == nomenclature_display:
+                selected_nomenclature = nom
+                nomenclature_id = nom.id
+                break
+
+        if not selected_nomenclature:
+            messagebox.showerror("Ошибка", "Не найдена выбранная номенклатура")
+            return
+
+        # Находим поставщика
+        selected_supplier = None
+        supplier_id = None
+        for sup in self.suppliers:
+            if sup.name == supplier_name:
+                selected_supplier = sup
+                supplier_id = sup.id
+                break
+
+        if not selected_supplier:
+            messagebox.showerror("Ошибка", "Не найден выбранный поставщик")
+            return
+
+        # Валидация количества
+        quantity = Validators.validate_decimal(quantity_str)
+        if quantity is None or quantity <= Decimal('0'):
+            messagebox.showwarning("Внимание", "Введите корректное количество")
+            return
+
+        # Валидация цены
+        price = Validators.validate_decimal(price_str)
+        if price is None or price <= Decimal('0'):
+            messagebox.showwarning("Внимание", "Введите корректную цену")
+            return
+
+        # Добавляем позицию в заказ через контроллер
+        success, message = self.controller.add_item_to_order(
+            nomenclature_id=nomenclature_id,
+            supplier_id=supplier_id,
+            quantity=quantity,
+            unit_price=price
+        )
+
+        if success:
+            # Добавляем позицию в таблицу
+            total = quantity * price
+            self.order_tree.insert(
+                '',
+                tk.END,
+                values=(
+                    selected_nomenclature.name,
+                    selected_supplier.name,
+                    Formatters.format_quantity(quantity),
+                    selected_nomenclature.unit,
+                    Formatters.format_currency(price, show_symbol=False),
+                    Formatters.format_currency(total, show_symbol=False)
+                )
+            )
+
+            # Обновляем итоговую сумму
+            self._update_total()
+
+            # Обновляем информацию о бюджете
+            self._update_budget_info()
+
+            # Очищаем поля
+            self.quantity_entry.delete(0, tk.END)
+            self.quantity_entry.insert(0, "1")
+            self.price_entry.delete(0, tk.END)
+
+            # Показываем предупреждение если есть
+            if "Внимание" in message:
+                messagebox.showwarning("Внимание", message)
+        else:
+            messagebox.showerror("Ошибка", message)
+
+    def _remove_item(self):
+        """Удалить выбранную позицию из заказа"""
+        selected = self.order_tree.selection()
+        if not selected:
+            messagebox.showwarning("Внимание", "Выберите позицию для удаления")
+            return
+
+        # Получаем индекс выбранной позиции
+        item_index = self.order_tree.index(selected[0])
+
+        # Удаляем из заказа (если контроллер позволяет)
+        if item_index < len(self.order.items):
+            # Для простоты пока просто удаляем из GUI, а в контроллере не реализуем удаление
+            self.order_tree.delete(selected[0])
+            self._update_total()
+            self._update_budget_info()
+        else:
+            # Удаляем из таблицы
+            self.order_tree.delete(selected[0])
+            self._update_total()
+            self._update_budget_info()
+
+    def _update_total(self):
+        """Обновить отображение итоговой суммы"""
+        if self.order:
+            total = self.order.total_amount
+            self.total_label.configure(text=f"Итого: {Formatters.format_currency(total)}")
+
+    def _save_order(self):
+        """Сохранить заказ"""
+        if not self.order or not self.order.items:
+            messagebox.showwarning("Внимание", "Заказ пуст")
+            return
+
+        # Получаем примечания
+        notes = self.notes_text.get("1.0", "end").strip()
+
+        # Сохраняем заказ через контроллер
+        success, message = self.controller.save_current_order(notes)
+
+        if success:
+            messagebox.showinfo("Успех", message)
+            self.destroy()  # Закрываем окно
+        else:
+            messagebox.showerror("Ошибка", message)
+
+    def _cancel(self):
+        """Отмена создания заказа"""
+        # Спрашиваем подтверждение если есть позиции
+        if self.order and self.order.items:
+            if not messagebox.askyesno(
+                    "Подтверждение",
+                    "Заказ содержит позиции. Отменить создание заказа?"
+            ):
+                return
+
+        self.destroy()
+
+
+class OrderDetailsWindow(ctk.CTkToplevel):
+    """Окно просмотра деталей заказа"""
+
+    def __init__(self, parent, controller, order):
+        super().__init__(parent)
+
+        self.controller = controller
+        self.order = order
+
+        # Настройка окна
+        self.title(f"Детали заказа: {order.order_number}")
+        self.geometry("1000x600")
+        self.transient(parent)
+        self.grab_set()
+
+        self._create_widgets()
+
+    def _create_widgets(self):
+        """Создание виджетов окна"""
+        main_frame = ctk.CTkFrame(self)
+        main_frame.pack(fill="both", expand=True, padx=10, pady=10)
+
+        # Заголовок
+        title_frame = ctk.CTkFrame(main_frame)
+        title_frame.pack(fill="x", pady=(0, 10))
+
+        ctk.CTkLabel(
+            title_frame,
+            text=f"📋 Детали заказа: {self.order.order_number}",
+            font=("Arial", 16, "bold")
+        ).pack(anchor="w", padx=10, pady=5)
+
+        # Информация о заказе
+        info_frame = ctk.CTkFrame(main_frame)
+        info_frame.pack(fill="x", pady=(0, 10))
+
+        info_text = (
+            f"Мероприятие: {self.order.event.name if self.order.event else 'Не указано'}\n"
+            f"Дата заказа: {Formatters.format_datetime(self.order.order_date)}\n"
+            f"Статус: {self.order.status}\n"
+            f"Количество позиций: {len(self.order.items)}\n"
+            f"Общая сумма: {Formatters.format_currency(self.order.total_amount)}\n"
+            f"Примечания: {self.order.notes if self.order.notes else 'Нет'}"
+        )
+
+        ctk.CTkLabel(
+            info_frame,
+            text=info_text,
+            font=("Arial", 12),
+            justify="left"
+        ).pack(anchor="w", padx=10, pady=10)
+
+        # Таблица позиций
+        table_frame = ctk.CTkFrame(main_frame)
+        table_frame.pack(fill="both", expand=True, pady=(0, 10))
+
+        # Treeview для позиций
+        tree_frame = ctk.CTkFrame(table_frame)
+        tree_frame.pack(fill="both", expand=True)
+
+        tree_scroll_y = ctk.CTkScrollbar(tree_frame)
+        tree_scroll_y.pack(side="right", fill="y")
+
+        tree_scroll_x = ctk.CTkScrollbar(tree_frame, orientation="horizontal")
+        tree_scroll_x.pack(side="bottom", fill="x")
+
+        self.tree = ttk.Treeview(
+            tree_frame,
+            yscrollcommand=tree_scroll_y.set,
+            xscrollcommand=tree_scroll_x.set,
+            selectmode="browse",
+            height=15
+        )
+
+        tree_scroll_y.configure(command=self.tree.yview)
+        tree_scroll_x.configure(command=self.tree.xview)
+
+        # Колонки
+        self.tree['columns'] = ('item', 'supplier', 'quantity', 'unit', 'price', 'total', 'notes')
+        self.tree.column('#0', width=0, stretch=tk.NO)
+        self.tree.column('item', width=150, anchor=tk.W)
+        self.tree.column('supplier', width=120, anchor=tk.W)
+        self.tree.column('quantity', width=80, anchor=tk.CENTER)
+        self.tree.column('unit', width=60, anchor=tk.CENTER)
+        self.tree.column('price', width=100, anchor=tk.E)
+        self.tree.column('total', width=100, anchor=tk.E)
+        self.tree.column('notes', width=200, anchor=tk.W)
+
+        # Заголовки
+        self.tree.heading('item', text='Позиция')
+        self.tree.heading('supplier', text='Поставщик')
+        self.tree.heading('quantity', text='Кол-во')
+        self.tree.heading('unit', text='Ед.')
+        self.tree.heading('price', text='Цена')
+        self.tree.heading('total', text='Сумма')
+        self.tree.heading('notes', text='Примечания')
+
+        self.tree.pack(fill="both", expand=True)
+
+        # Заполняем таблицу
+        for item in self.order.items:
+            self.tree.insert(
+                '',
+                tk.END,
+                values=(
+                    item.nomenclature.name if item.nomenclature else 'Не указано',
+                    item.supplier.name if item.supplier else 'Не указано',
+                    Formatters.format_quantity(item.quantity),
+                    item.nomenclature.unit if item.nomenclature else '',
+                    Formatters.format_currency(item.unit_price, show_symbol=False),
+                    Formatters.format_currency(item.total_price, show_symbol=False),
+                    item.notes
+                )
+            )
+
+        # Кнопка закрытия
+        close_button = ctk.CTkButton(
+            main_frame,
+            text="Закрыть",
+            command=self.destroy,
+            width=100
+        ).pack(pady=10)

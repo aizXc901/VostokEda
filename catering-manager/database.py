@@ -438,49 +438,103 @@ class DatabaseManager:
 
     # ===== CRUD для orders =====
 
-    def create_order(self, order: Order) -> int:
-        """Создать новый заказ"""
+    def add_item_to_order(self, nomenclature_id: int, supplier_id: int,
+                          quantity: Decimal, unit_price: Optional[Decimal] = None) -> Tuple[bool, str]:
+        """Добавить позицию в текущий заказ"""
+        if not self.current_order:
+            return False, "Сначала создайте заказ"
+
+        # Получаем информацию о номенклатуре и поставщике
+        nomenclature = self.db.get_nomenclature_by_id(nomenclature_id)
+        if not nomenclature:
+            return False, "Номенклатура не найдена"
+
+        supplier = next((s for s in self.get_all_suppliers() if s.id == supplier_id), None)
+        if not supplier:
+            return False, "Поставщик не найден"
+
+        # Получаем актуальную цену если не указана
+        if unit_price is None:
+            prices = self.db.get_prices_for_nomenclature(nomenclature_id)
+            supplier_prices = [p for p in prices if p.supplier_id == supplier_id]
+
+            if not supplier_prices:
+                return False, "Не найдена цена для выбранного поставщика"
+
+            unit_price = supplier_prices[0].price
+
+        # Создаем позицию заказа
+        item = OrderItem(
+            nomenclature_id=nomenclature_id,
+            supplier_id=supplier_id,
+            nomenclature=nomenclature,
+            supplier=supplier,
+            quantity=quantity,
+            unit_price=unit_price
+        )
+
+        # Проверяем бюджет
+        if self.current_event:
+            new_total = self.current_order.total_amount + item.total_price
+            budget_usage = new_total / self.current_event.budget
+
+            if budget_usage > Config.BUDGET_CRITICAL_THRESHOLD:
+                return False, f"Превышение бюджета на {Formatters.format_percentage((budget_usage - 1) * 100)}%"
+            elif budget_usage > Config.BUDGET_ALERT_THRESHOLD:
+                # Предупреждение, но разрешаем
+                self.current_order.add_item(item)
+                warning_msg = f"Внимание: использовано {Formatters.format_percentage(budget_usage * 100)}% бюджета"
+                return True, warning_msg
+
+        self.current_order.add_item(item)
+        return True, f"Позиция добавлена. Сумма: {Formatters.format_currency(item.total_price)}"
+
+    def save_current_order(self, notes: str = "") -> Tuple[bool, str]:
+        """Сохранить текущий заказ"""
+        if not self.current_order:
+            return False, "Нет активного заказа"
+
+        if not self.current_order.items:
+            return False, "Заказ не может быть пустым"
+
+        # Проверяем срок заказа (не позднее чем за сутки до мероприятия)
+        if self.current_event:
+            from datetime import timedelta
+            deadline = self.current_event.event_date - timedelta(days=1)
+            if self.current_order.order_date.date() > deadline:
+                return False, "Заказ можно формировать не позднее чем за сутки до мероприятия"
+
+        # Устанавливаем примечания
+        self.current_order.notes = notes
+
+        try:
+            order_id = self.db.create_order(self.current_order)
+            self.current_order.id = order_id
+
+            # Обновляем контроль бюджета
+            self._update_budget_controls()
+
+            message = f"Заказ №{self.current_order.order_number} сохранен. " \
+                      f"Сумма: {Formatters.format_currency(self.current_order.total_amount)}"
+
+            # Сбрасываем текущий заказ
+            saved_order = self.current_order
+            self.current_order = None
+
+            return True, message
+        except Exception as e:
+            logger.error(f"Ошибка сохранения заказа: {e}")
+            return False, f"Ошибка при сохранении заказа: {str(e)}"
+
+    def delete_order(self, order_id: int) -> Tuple[bool, str]:
+        """Удалить заказ"""
         with self.get_connection() as conn:
             cursor = conn.cursor()
-
-            # Создаем заказ
             cursor.execute("""
-                INSERT INTO orders 
-                (order_number, event_id, order_date, status, total_amount, notes, created_at)
-                VALUES (?, ?, ?, ?, ?, ?, ?)
-            """, (
-                order.order_number,
-                order.event_id,
-                order.order_date.isoformat(),
-                order.status,
-                float(order.total_amount),
-                order.notes,
-                order.created_at.isoformat() if order.created_at else datetime.now().isoformat()
-            ))
-
-            order_id = cursor.lastrowid
-
-            # Добавляем позиции заказа
-            for item in order.items:
-                cursor.execute("""
-                    INSERT INTO order_items 
-                    (order_id, nomenclature_id, supplier_id, quantity, unit_price, 
-                     total_price, notes, delivery_date, delivery_time)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-                """, (
-                    order_id,
-                    item.nomenclature_id,
-                    item.supplier_id,
-                    float(item.quantity),
-                    float(item.unit_price),
-                    float(item.total_price),
-                    item.notes,
-                    item.delivery_date.isoformat() if item.delivery_date else None,
-                    item.delivery_time.strftime('%H:%M') if item.delivery_time else None
-                ))
-
+                DELETE FROM orders WHERE id = ?
+            """, (order_id,))
             conn.commit()
-            return order_id
+            return True, "Заказ удален"
 
     def get_orders_for_event(self, event_id: int) -> List[Order]:
         """Получить все заказы для мероприятия"""
