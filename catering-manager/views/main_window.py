@@ -13,7 +13,7 @@ from models import *
 from controllers import CateringController
 from utils.formatters import Formatters
 
-# Импорты страниц
+# Импорты страниц (убраны циклические зависимости)
 from .categories_view import CategoriesPage
 from .nomenclature_view import NomenclaturePage
 from .suppliers_view import SuppliersPage
@@ -21,21 +21,36 @@ from .events_view import EventsPage
 from .orders_view import OrdersPage
 from .reports_view import ReportsPage
 
+# Глобальная переменная для отслеживания активного окна
+_active_window = None
+
 class MainWindow(ctk.CTk):
     """Главное окно приложения"""
 
+    # Статическое свойство для доступа к экземпляру
+    _instance = None
+
     def __init__(self, controller: CateringController):
+        # Проверка на существование экземпляра
+        if MainWindow._instance is not None:
+            raise RuntimeError("MainWindow уже существует!")
+
+        # Сохраняем ссылку на экземпляр
+        MainWindow._instance = self
+        global _active_window
+        _active_window = self
+
         super().__init__()
 
         self.controller = controller
 
         # Настройка окна
-        self.title(f"{Config.APP_NAME} v{Config.APP_VERSION}")  # <--- Исправлено
+        self.title(f"{Config.APP_NAME} v{Config.APP_VERSION}")
         self.geometry("1200x700")
+        self.minsize(1000, 600)  # Минимальный размер окна
 
-        # Настройка темы
-        ctk.set_appearance_mode(Config.THEME)  # <--- Исправлено
-        ctk.set_default_color_theme("blue")
+        # Настройка реакции на закрытие окна
+        self.protocol("WM_DELETE_WINDOW", self._on_closing)
 
         # Создание интерфейса
         self._create_widgets()
@@ -43,6 +58,16 @@ class MainWindow(ctk.CTk):
 
         # Загрузка данных
         self._load_initial_data()
+
+    def _on_closing(self):
+        """Обработка закрытия окна"""
+        # Удаляем ссылку на экземпляр
+        MainWindow._instance = None
+        global _active_window
+        _active_window = None
+
+        # Закрываем окно
+        self.destroy()
 
     def _create_widgets(self):
         """Создание виджетов"""
@@ -261,3 +286,8 @@ class MainWindow(ctk.CTk):
         for page in [self.events_page, self.nomenclature_page,
                     self.suppliers_page, self.reports_page]:
             page.pack_forget()
+
+    def focus_window(self):
+        """Фокусировка на окне"""
+        self.lift()
+        self.focus_force()

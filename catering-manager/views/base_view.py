@@ -17,7 +17,6 @@ class BasePage(ctk.CTkFrame):
         self.controller = controller
         self.title = title
 
-        self._create_widgets()
 
     def _create_widgets(self):
         """Создание виджетов страницы (должен быть переопределен)"""

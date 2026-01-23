@@ -33,10 +33,10 @@ class EventsPage(BasePage):
         title_frame.pack(fill="x", padx=10, pady=10)
 
         ctk.CTkLabel(
-            title_frame,
-            text="📋 Управление мероприятиями",
-            font=("Arial", 18, "bold")
-        ).pack(side="left", padx=10)
+             title_frame,
+             text="📋 Управление мероприятиями",
+             font=("Arial", 18, "bold")
+         ).pack(side="left", padx=10)
 
         # Кнопки управления
         button_frame = ctk.CTkFrame(self)
@@ -239,7 +239,9 @@ class EventDialog(ctk.CTkToplevel):
         # Настройка окна
         title = "Редактировать мероприятие" if event else "Добавить мероприятие"
         self.title(title)
-        self.geometry("700x600")
+        # Изменяем размеры окна - уменьшаем ширину и высоту
+        self.geometry("550x520")
+        self.minsize(500, 480)  # Устанавливаем минимальный размер
         self.resizable(True, True)
 
         self.transient(parent)
@@ -284,7 +286,7 @@ class EventDialog(ctk.CTkToplevel):
 
         # Форма
         form_frame = ctk.CTkFrame(self.scrollable_frame)
-        form_frame.pack(fill="x", pady=10, padx=20)
+        form_frame.pack(fill="x", pady=10, padx=15)
 
         # Название
         ctk.CTkLabel(form_frame, text="Название мероприятия *:", font=("Arial", 12)).pack(anchor="w", padx=10, pady=(10, 0))
@@ -343,7 +345,7 @@ class EventDialog(ctk.CTkToplevel):
 
         # Кнопки
         button_frame = ctk.CTkFrame(self.scrollable_frame)
-        button_frame.pack(fill="x", pady=(20, 10), padx=20)
+        button_frame.pack(fill="x", pady=(20, 10), padx=15)
 
         ctk.CTkButton(
             button_frame,
