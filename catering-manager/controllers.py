@@ -282,6 +282,22 @@ class CateringController:
             logger.error(f"Ошибка сохранения заказа: {e}")
             return False, f"Ошибка при сохранении заказа: {str(e)}"
 
+    def get_settings(self) -> Settings:
+        """Получить настройки приложения"""
+        return self.db.get_settings()
+
+    def save_settings(self, settings: Settings) -> Tuple[bool, str]:
+        """Сохранить настройки приложения"""
+        try:
+            success = self.db.save_settings(settings)
+            if success:
+                return True, "Настройки успешно сохранены"
+            else:
+                return False, "Ошибка сохранения настроек"
+        except Exception as e:
+            logger.error(f"Ошибка сохранения настроек: {e}")
+            return False, f"Ошибка сохранения настроек: {str(e)}"
+
     def get_orders_for_current_event(self) -> List[Order]:
         """Получить заказы для текущего мероприятия"""
         if not self.current_event:

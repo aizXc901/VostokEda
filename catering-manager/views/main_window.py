@@ -1,3 +1,4 @@
+# file: D:\Users\Maria\Downloads\VostokEda\catering-manager\views\main_window.py
 """
 Главное окно приложения
 """
@@ -20,6 +21,7 @@ from .suppliers_view import SuppliersPage
 from .events_view import EventsPage
 from .orders_view import OrdersPage
 from .reports_view import ReportsPage
+from .settings_view import SettingsPage
 
 # Глобальная переменная для отслеживания активного окна
 _active_window = None
@@ -177,6 +179,9 @@ class MainWindow(ctk.CTk):
         # Страница отчетов
         self.reports_page = ReportsPage(self.content_frame, self.controller)
 
+        # Страница настроек
+        self.settings_page = SettingsPage(self.content_frame, self.controller)
+
         # Показываем страницу мероприятий по умолчанию
         self.show_events()
 
@@ -265,7 +270,9 @@ class MainWindow(ctk.CTk):
 
     def show_settings(self):
         """Показать страницу настроек"""
-        messagebox.showinfo("Настройки", "Раздел настроек находится в разработке")
+        self._hide_all_pages()
+        self.settings_page.pack(fill="both", expand=True)
+        self.show_budget_panel(False)  # Скрываем панель бюджета для настроек
 
     def show_about(self):
         """Показать информацию о программе"""
@@ -284,7 +291,7 @@ class MainWindow(ctk.CTk):
     def _hide_all_pages(self):
         """Скрыть все страницы"""
         for page in [self.events_page, self.nomenclature_page,
-                    self.suppliers_page, self.reports_page]:
+                     self.suppliers_page, self.reports_page, self.settings_page]:  # Добавляем settings_page
             page.pack_forget()
 
     def focus_window(self):

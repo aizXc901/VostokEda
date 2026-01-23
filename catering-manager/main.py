@@ -1,3 +1,4 @@
+# file: D:\Users\Maria\Downloads\VostokEda\catering-manager\main.py
 """
 Точка входа приложения
 """

@@ -52,7 +52,8 @@ class DatabaseManager:
             'events',
             'orders',
             'order_items',
-            'budget_controls'
+            'budget_controls',
+            'settings'  # Добавляем проверку таблицы настроек
         ]
 
         result = {}
@@ -525,6 +526,93 @@ class DatabaseManager:
         except Exception as e:
             logger.error(f"Ошибка сохранения заказа: {e}")
             return False, f"Ошибка при сохранении заказа: {str(e)}"
+
+    def get_settings(self) -> Settings:
+        """Получить настройки приложения"""
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("SELECT * FROM settings WHERE id = 1")
+            row = cursor.fetchone()
+
+            if row:
+                return Settings(
+                    id=row['id'],
+                    budget_warning_threshold=float(row['budget_warning_threshold']),
+                    budget_alert_threshold=float(row['budget_alert_threshold']),
+                    budget_critical_threshold=float(row['budget_critical_threshold']),
+                    default_currency=row['default_currency'],
+                    language=row['language'],
+                    theme=row['theme'],
+                    auto_backup_enabled=bool(row['auto_backup_enabled']),
+                    backup_interval_days=row['backup_interval_days'],
+                    reports_format=row['reports_format'],
+                    created_at=datetime.fromisoformat(row['created_at']) if row['created_at'] else datetime.now(),
+                    updated_at=datetime.fromisoformat(row['updated_at']) if row['updated_at'] else datetime.now()
+                )
+
+        # Если настройки не найдены, возвращаем значения по умолчанию
+        return Settings()
+
+    def save_settings(self, settings: Settings) -> bool:
+        """Сохранить настройки приложения"""
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+
+            # Проверяем, существуют ли настройки
+            cursor.execute("SELECT id FROM settings WHERE id = 1")
+            exists = cursor.fetchone() is not None
+
+            if exists:
+                cursor.execute("""
+                    UPDATE settings 
+                    SET budget_warning_threshold = ?, 
+                        budget_alert_threshold = ?, 
+                        budget_critical_threshold = ?, 
+                        default_currency = ?, 
+                        language = ?, 
+                        theme = ?, 
+                        auto_backup_enabled = ?, 
+                        backup_interval_days = ?, 
+                        reports_format = ?, 
+                        updated_at = ?
+                    WHERE id = ?
+                """, (
+                    settings.budget_warning_threshold,
+                    settings.budget_alert_threshold,
+                    settings.budget_critical_threshold,
+                    settings.default_currency,
+                    settings.language,
+                    settings.theme,
+                    int(settings.auto_backup_enabled),
+                    settings.backup_interval_days,
+                    settings.reports_format,
+                    datetime.now().isoformat(),
+                    settings.id
+                ))
+            else:
+                cursor.execute("""
+                    INSERT INTO settings 
+                    (id, budget_warning_threshold, budget_alert_threshold, budget_critical_threshold, 
+                     default_currency, language, theme, auto_backup_enabled, 
+                     backup_interval_days, reports_format, created_at, updated_at)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """, (
+                    settings.id,
+                    settings.budget_warning_threshold,
+                    settings.budget_alert_threshold,
+                    settings.budget_critical_threshold,
+                    settings.default_currency,
+                    settings.language,
+                    settings.theme,
+                    int(settings.auto_backup_enabled),
+                    settings.backup_interval_days,
+                    settings.reports_format,
+                    datetime.now().isoformat(),
+                    datetime.now().isoformat()
+                ))
+
+            conn.commit()
+            return True
 
     def delete_order(self, order_id: int) -> Tuple[bool, str]:
         """Удалить заказ"""

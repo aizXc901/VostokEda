@@ -168,6 +168,21 @@ class Order:
             removed_item = self.items.pop(index)
             self.total_amount -= removed_item.total_price
 
+@dataclass
+class Settings:
+    """Настройки приложения"""
+    id: int = 1
+    budget_warning_threshold: float = 0.8
+    budget_alert_threshold: float = 0.9
+    budget_critical_threshold: float = 1.0
+    default_currency: str = "RUB"
+    language: str = "ru"
+    theme: str = "dark"
+    auto_backup_enabled: bool = True
+    backup_interval_days: int = 7
+    reports_format: str = "excel"
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
 
 @dataclass
 class BudgetControl:
