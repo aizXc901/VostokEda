@@ -307,7 +307,6 @@ class SuppliersPage(BasePage):
             "Функция просмотра цен находится в разработке."
         )
 
-
 class SupplierDialog(ctk.CTkToplevel):
     """Диалог для добавления/редактирования поставщика"""
 
@@ -322,7 +321,7 @@ class SupplierDialog(ctk.CTkToplevel):
         # Настройка окна
         title = "Редактировать поставщика" if supplier else "Добавить поставщика"
         self.title(title)
-        self.geometry("700x600")
+        self.geometry("1000x600")
         self.resizable(False, False)
 
         self.transient(parent)
