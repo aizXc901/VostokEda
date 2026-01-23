@@ -438,6 +438,13 @@ class ReportsPage(BasePage):
         stats_window = ctk.CTkToplevel(self)
         stats_window.title("Общая статистика по мероприятиям")
         stats_window.geometry("800x600")
+
+        # Центрирование окна на экране
+        stats_window.update_idletasks()  # Обновляем размеры окна
+        x = (stats_window.winfo_screenwidth() // 2) - (800 // 2)
+        y = (stats_window.winfo_screenheight() // 2) - (600 // 2)
+        stats_window.geometry(f"800x600+{x}+{y}")
+
         stats_window.transient(self)
         stats_window.grab_set()
 
@@ -475,13 +482,22 @@ class ReportsPage(BasePage):
             command=stats_window.destroy
         ).pack(side="right", padx=5)
 
+    # file: D:\Users\Maria\Downloads\VostokEda\catering-manager\views\reports_view.py
+    # section: _show_overall_charts method
     def _show_overall_charts(self, events: List[Event]):
         """Показать диаграммы для общего отчета"""
         try:
             # Создать новое окно для диаграмм
             chart_window = ctk.CTkToplevel(self)
             chart_window.title("Диаграммы по всем мероприятиям")
-            chart_window.geometry("1000x700")
+            chart_window.geometry("1200x800")  # Уменьшен размер окна
+
+            # Центрирование окна на экране
+            chart_window.update_idletasks()  # Обновляем размеры окна
+            x = (chart_window.winfo_screenwidth() // 2) - (1200 // 2)
+            y = (chart_window.winfo_screenheight() // 2) - (800 // 2)
+            chart_window.geometry(f"1200x800+{x}+{y}")
+
             chart_window.transient(self)
             chart_window.grab_set()
 
@@ -501,18 +517,41 @@ class ReportsPage(BasePage):
                 else:
                     spent_amounts.append(0.0)
 
-            # Создать фигуру matplotlib
-            fig, ((ax1, ax2), (ax3, ax4)) = plt.subplots(2, 2, figsize=(14, 10))
+            # Создать фигуру matplotlib с уменьшенным размером
+            fig, axes = plt.subplots(2, 2, figsize=(12, 9))  # Уменьшен размер фигуры
             fig.suptitle('Общая аналитика по мероприятиям', fontsize=16)
 
+            ax1, ax2, ax3, ax4 = axes.flatten()
+
             # Диаграмма 1: Бюджеты мероприятий
-            ax1.bar(event_names, budgets, alpha=0.7, label='Бюджет', color='skyblue')
-            ax1.bar(event_names, spent_amounts, alpha=0.7, label='Потрачено', color='lightcoral')
+            bars1 = ax1.bar(range(len(event_names)), budgets, alpha=0.7, label='Бюджет', color='skyblue')
+            ax1.bar(range(len(event_names)), spent_amounts, alpha=0.7, label='Потрачено', color='lightcoral')
             ax1.set_xlabel('Мероприятия')
             ax1.set_ylabel('Сумма, руб')
             ax1.set_title('Сравнение бюджетов и расходов')
-            ax1.tick_params(axis='x', rotation=45)
             ax1.legend()
+
+            # Добавить аннотации для первой диаграммы
+            annot1 = ax1.annotate('', xy=(0, 0), xytext=(20, 20), textcoords="offset points",
+                                  bbox=dict(boxstyle="round", fc="w", ec="b", lw=1),
+                                  arrowprops=dict(arrowstyle="->", connectionstyle="arc3,rad=0"),
+                                  visible=False)
+
+            def hover1(event):
+                if event.inaxes == ax1:
+                    for i, bar in enumerate(bars1):
+                        if bar.contains(event)[0]:
+                            annot1.xy = (bar.get_x() + bar.get_width() / 2, bar.get_height())
+                            annot1.set_text(f'{event_names[i]}')
+                            annot1.set_visible(True)
+                            fig.canvas.draw_idle()
+                            return
+                    annot1.set_visible(False)
+                else:
+                    annot1.set_visible(False)
+                fig.canvas.draw_idle()
+
+            fig.canvas.mpl_connect("motion_notify_event", hover1)
 
             # Диаграмма 2: Использование бюджета в %
             usage_percentages = []
@@ -523,14 +562,13 @@ class ReportsPage(BasePage):
                     usage = 0
                 usage_percentages.append(usage)
 
-            bars = ax2.bar(event_names, usage_percentages, alpha=0.7)
+            bars2 = ax2.bar(range(len(event_names)), usage_percentages, alpha=0.7)
             ax2.set_xlabel('Мероприятия')
             ax2.set_ylabel('Использование бюджета, %')
             ax2.set_title('Процент использования бюджета')
-            ax2.tick_params(axis='x', rotation=45)
 
             # Раскрасить столбцы в зависимости от уровня использования
-            for i, bar in enumerate(bars):
+            for i, bar in enumerate(bars2):
                 height = bar.get_height()
                 if height > 100:
                     bar.set_color('red')
@@ -540,6 +578,28 @@ class ReportsPage(BasePage):
                     bar.set_color('yellow')
                 else:
                     bar.set_color('green')
+
+            # Добавить аннотации для второй диаграммы
+            annot2 = ax2.annotate('', xy=(0, 0), xytext=(20, 20), textcoords="offset points",
+                                  bbox=dict(boxstyle="round", fc="w", ec="b", lw=1),
+                                  arrowprops=dict(arrowstyle="->", connectionstyle="arc3,rad=0"),
+                                  visible=False)
+
+            def hover2(event):
+                if event.inaxes == ax2:
+                    for i, bar in enumerate(bars2):
+                        if bar.contains(event)[0]:
+                            annot2.xy = (bar.get_x() + bar.get_width() / 2, bar.get_height())
+                            annot2.set_text(f'{event_names[i]}')
+                            annot2.set_visible(True)
+                            fig.canvas.draw_idle()
+                            return
+                    annot2.set_visible(False)
+                else:
+                    annot2.set_visible(False)
+                fig.canvas.draw_idle()
+
+            fig.canvas.mpl_connect("motion_notify_event", hover2)
 
             # Диаграмма 3: Распределение по статусам
             status_counts = {"планируется": 0, "идет": 0, "завершено": 0}
@@ -553,15 +613,38 @@ class ReportsPage(BasePage):
             ax3.set_title('Распределение мероприятий по статусам')
 
             # Диаграмма 4: Расходы по мероприятиям
-            ax4.plot(event_names, spent_amounts, marker='o', linestyle='-', linewidth=2, markersize=6)
+            line, = ax4.plot(range(len(event_names)), spent_amounts, marker='o', linestyle='-', linewidth=2,
+                             markersize=6)
             ax4.set_xlabel('Мероприятия')
             ax4.set_ylabel('Потрачено, руб')
             ax4.set_title('Расходы по мероприятиям')
-            ax4.tick_params(axis='x', rotation=45)
             ax4.grid(True)
 
-            # Настроить макет
-            plt.tight_layout()
+            # Добавить аннотации для четвертой диаграммы
+            annot4 = ax4.annotate('', xy=(0, 0), xytext=(20, 20), textcoords="offset points",
+                                  bbox=dict(boxstyle="round", fc="w", ec="b", lw=1),
+                                  arrowprops=dict(arrowstyle="->", connectionstyle="arc3,rad=0"),
+                                  visible=False)
+
+            def hover4(event):
+                if event.inaxes == ax4:
+                    for i, (x, y) in enumerate(zip(line.get_xdata(), line.get_ydata())):
+                        if abs(event.xdata - x) < 0.5 and abs(event.ydata - y) < max(
+                                spent_amounts) * 0.1:  # Приблизительное совпадение
+                            annot4.xy = (x, y)
+                            annot4.set_text(f'{event_names[i]}')
+                            annot4.set_visible(True)
+                            fig.canvas.draw_idle()
+                            return
+                    annot4.set_visible(False)
+                else:
+                    annot4.set_visible(False)
+                fig.canvas.draw_idle()
+
+            fig.canvas.mpl_connect("motion_notify_event", hover4)
+
+            # Настроить макет для лучшего распределения диаграмм
+            plt.tight_layout(rect=[0, 0, 1, 0.96])  # Учитываем заголовок
 
             # Встроить график в Tkinter
             canvas = FigureCanvasTkAgg(fig, master=figure_frame)
