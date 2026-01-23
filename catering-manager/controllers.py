@@ -1,7 +1,7 @@
 """
 Контроллеры бизнес-логики приложения
 """
-
+import customtkinter as ctk
 from datetime import datetime, date, timedelta
 from decimal import Decimal
 from typing import List, Optional, Tuple, Dict, Any
@@ -15,13 +15,16 @@ from utils.formatters import Formatters
 
 logger = logging.getLogger(__name__)
 
-class CateringController:
-    """Основной контроллер приложения"""
 
+# controllers.py
+class CateringController:
     def __init__(self, db_manager: Optional[DatabaseManager] = None):
         self.db = db_manager or DatabaseManager()
         self.current_event: Optional[Event] = None
         self.current_order: Optional[Order] = None
+
+        self.settings = self.get_settings()
+        ctk.set_appearance_mode(self.settings.theme)
 
     # ===== Управление категориями =====
     def _get_budget_status_color(self, usage: float) -> str:

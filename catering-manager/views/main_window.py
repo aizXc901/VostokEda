@@ -26,10 +26,10 @@ from .settings_view import SettingsPage
 # Глобальная переменная для отслеживания активного окна
 _active_window = None
 
+
 class MainWindow(ctk.CTk):
     """Главное окно приложения"""
 
-    # Статическое свойство для доступа к экземпляру
     _instance = None
 
     def __init__(self, controller: CateringController):
@@ -42,9 +42,14 @@ class MainWindow(ctk.CTk):
         global _active_window
         _active_window = self
 
-        super().__init__()
-
+        # Устанавливаем контроллер до вызова super().__init__()
         self.controller = controller
+
+        # Устанавливаем тему до инициализации окна
+        settings = controller.get_settings()
+        ctk.set_appearance_mode(settings.theme)
+
+        super().__init__()
 
         # Настройка окна
         self.title(f"{Config.APP_NAME} v{Config.APP_VERSION}")

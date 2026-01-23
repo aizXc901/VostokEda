@@ -177,7 +177,7 @@ class Settings:
     budget_critical_threshold: float = 1.0
     default_currency: str = "RUB"
     language: str = "ru"
-    theme: str = "dark"
+    theme: str = "dark"  # Изменено на dark по умолчанию
     auto_backup_enabled: bool = True
     backup_interval_days: int = 7
     reports_format: str = "excel"

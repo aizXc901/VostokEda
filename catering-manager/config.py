@@ -28,7 +28,7 @@ class Config:
     APP_COMPANY = "АО 'ТехноХолдинг 'Восток'"
 
     # Настройки интерфейса
-    THEME = "dark"  # "dark" или "light"
+    THEME = "dark"  # Изменено на dark по умолчанию - "dark" или "light"
     PRIMARY_COLOR = "#2FA572"  # Основной цвет
     SECONDARY_COLOR = "#3A7CA5"  # Вторичный цвет
 
@@ -89,3 +89,20 @@ class Config:
     def get_log_file() -> Path:
         """Получить путь к файлу лога"""
         return Config.LOG_FILE
+
+    @staticmethod
+    def get_theme() -> str:
+        """Получить текущую тему"""
+        return getattr(Config, 'THEME', 'dark')
+
+    @staticmethod
+    def set_theme(theme: str):
+        """Установить тему"""
+        Config.THEME = theme
+        ctk.set_appearance_mode(theme)
+
+    @staticmethod
+    def initialize_theme():
+        """Инициализировать тему приложения"""
+        settings = CateringController().get_settings()
+        ctk.set_appearance_mode(settings.theme)

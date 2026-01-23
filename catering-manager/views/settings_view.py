@@ -281,6 +281,9 @@ class SettingsPage(BasePage):
             theme_map = {"Темная": "dark", "Светлая": "light", "Системная": "system"}
             self.settings.theme = theme_map[self.theme.get()]
 
+            # Применяем новую тему
+            ctk.set_appearance_mode(self.settings.theme)
+
             # Сохранение настроек через контроллер
             success, message = self.controller.save_settings(self.settings)
 
@@ -293,3 +296,4 @@ class SettingsPage(BasePage):
             messagebox.showerror("Ошибка", "Некорректное значение в одном из полей")
         except Exception as e:
             messagebox.showerror("Ошибка", f"Не удалось сохранить настройки: {str(e)}")
+

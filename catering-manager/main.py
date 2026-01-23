@@ -12,7 +12,7 @@ import atexit
 # Добавляем корневую директорию в путь Python
 sys.path.insert(0, str(Path(__file__).parent))
 
-import customtkinter as ctk
+import customtkinter as ctk  # Добавляем до импорта других модулей
 from config import Config
 from controllers import CateringController
 from views.main_window import MainWindow
@@ -59,7 +59,7 @@ def main():
     try:
         logger.info(f"Запуск {Config.APP_NAME} v{Config.APP_VERSION}")
 
-        # Создаем контроллер
+        # Создаем контроллер (он сам установит тему из настроек)
         controller = CateringController()
 
         # Проверяем базу данных
@@ -93,7 +93,7 @@ def main():
         logger.error(f"Ошибка запуска приложения: {e}")
 
         # Проверяем, не существует ли уже экземпляр окна
-        if MainWindow._instance is not None:
+        if MainWindow._instance is not None and hasattr(MainWindow._instance, 'controller'):
             # Если окно уже существует, просто фокусируемся на нем
             try:
                 MainWindow._instance.focus()
